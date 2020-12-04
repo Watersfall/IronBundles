@@ -1,0 +1,6 @@
+{
+  "parent": "ironbundles:item/netherite_bundle",
+  "textures": {
+    "layer0": "ironbundles:item/netherite_bundle_filled"
+  }
+}

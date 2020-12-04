@@ -1,0 +1,6 @@
+{
+  "parent": "ironbundles:item/iron_bundle",
+  "textures": {
+    "layer0": "ironbundles:item/iron_bundle_filled"
+  }
+}
