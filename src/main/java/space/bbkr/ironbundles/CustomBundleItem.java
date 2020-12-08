@@ -2,11 +2,17 @@ package space.bbkr.ironbundles;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.util.NbtType;
+
 import net.minecraft.client.item.BundleTooltipData;
 import net.minecraft.client.item.TooltipContext;
 import net.minecraft.client.item.TooltipData;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.inventory.Inventories;
+import net.minecraft.inventory.Inventory;
+import net.minecraft.inventory.SimpleInventory;
+import net.minecraft.item.BundleItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -106,52 +112,27 @@ public class CustomBundleItem extends Item {
 				tag.put("Items", new ListTag());
 			}
 
-			int bundleOccupancy = getBundleOccupancy(bundle);
-			int itemOccupancy = getItemOccupancy(stack);
-			int insertCount = Math.min(stack.getCount(), (maxCapacity - bundleOccupancy) / itemOccupancy);
-			if (insertCount == 0) {
-				return 0;
-			} else {
-				ListTag items = tag.getList("Items", 10);
-				Optional<CompoundTag> optional = getTopStackOf(stack, items);
-				if (optional.isPresent()) {
-					CompoundTag item = optional.get();
-					ItemStack newStack = ItemStack.fromTag(item);
-					newStack.increment(insertCount);
-					newStack.toTag(item);
-					items.remove(item);
-					items.add(0, item);
-				} else {
-					ItemStack newStack = stack.copy();
-					newStack.setCount(insertCount);
-					CompoundTag item = new CompoundTag();
-					newStack.toTag(item);
-					items.add(0, item);
-				}
-
-				return insertCount;
-			}
+			ListTag items = tag.getList("Items", 10);
+			BundleInventory inv = new BundleInventory(bundle, items);
+			int remainder = stack.getCount() - inv.addStack(stack).getCount();
+			tag.put("Items", inv.getTags());
+			return remainder;
 		} else {
 			return 0;
 		}
 	}
 
-	private static Optional<CompoundTag> getTopStackOf(ItemStack itemStack, ListTag listTag) {
-		if (itemStack.isOf(Items.BUNDLE)) {
-			return Optional.empty();
-		} else {
-			Stream<Tag> stream = listTag.stream();
-			stream = stream.filter(CompoundTag.class::isInstance);
-			return stream.map(CompoundTag.class::cast).filter((compoundTag) -> ItemStack.method_31577(ItemStack.fromTag(compoundTag), itemStack)).findFirst();
-		}
-	}
-
 	private int getItemOccupancy(ItemStack stack) {
-		return stack.isOf(this) ? 4 + getBundleOccupancy(stack) : 64 / stack.getMaxCount();
+		if (stack.getItem() instanceof BundleItem) {
+			return 4 + getBundledStacks(stack).mapToInt((itemStack) -> getItemOccupancy(itemStack) * itemStack.getCount()).sum();
+		} else if (stack.getItem() instanceof CustomBundleItem) {
+			return 4 + getBundleOccupancy(stack);
+		}
+		return 64 / stack.getMaxCount();
 	}
 
 	private int getBundleOccupancy(ItemStack stack) {
-		return getBundledStacks(stack).mapToInt((itemStack) -> getItemOccupancy(itemStack) * itemStack.getCount()).sum();
+		return new BundleInventory(stack).count;
 	}
 
 	private static Optional<ItemStack> getTopStack(ItemStack itemStack) {
@@ -214,5 +195,175 @@ public class CustomBundleItem extends Item {
 	@Environment(EnvType.CLIENT)
 	public void appendTooltip(ItemStack stack, World world, List<Text> tooltip, TooltipContext context) {
 		tooltip.add((new TranslatableText("item.minecraft.bundle.fullness", getBundleOccupancy(stack), maxCapacity)).formatted(Formatting.GRAY));
+	}
+
+	private class BundleInventory implements Inventory {
+		private final ItemStack bundle;
+		private final List<ItemStack> stacks = DefaultedList.of();
+
+		public int count;
+
+		private BundleInventory(ItemStack bundle) {
+			this.bundle = bundle;
+			if (bundle.hasTag() && bundle.getTag().contains("Items")) {
+				this.readTags(bundle.getTag().getList("Items", NbtType.COMPOUND));
+			}
+		}
+
+		private BundleInventory(ItemStack bundle, ListTag tag) {
+			this.bundle = bundle;
+			this.readTags(tag);
+		}
+
+		public ItemStack addStack(ItemStack stack) {
+			ItemStack insertStack = stack.copy();
+			int itemOccupancy = getItemOccupancy(stack);
+			int insertCount = Math.min(stack.getCount(), (maxCapacity - count) / itemOccupancy);
+			if (insertCount == 0) return insertStack;
+			int remainder = insertStack.getCount() - insertCount;
+			insertStack.setCount(insertCount);
+			this.addToExistingSlot(insertStack);
+			if (insertStack.isEmpty()) {
+				ItemStack ret = stack.copy();
+				ret.setCount(remainder);
+				return ret;
+			} else {
+				this.addToNewSlot(insertStack);
+				if (insertStack.isEmpty()) {
+					ItemStack ret = stack.copy();
+					ret.setCount(remainder);
+					return ret;
+				} else {
+					insertStack.increment(remainder);
+					return insertStack;
+				}
+			}
+		}
+
+		private void addToExistingSlot(ItemStack stack) {
+			for(int i = 0; i < this.size(); ++i) {
+				ItemStack itemStack = this.getStack(i);
+				if (ItemStack.method_31577(itemStack, stack)) {
+					this.transfer(stack, itemStack);
+					if (stack.isEmpty()) {
+						return;
+					}
+				}
+			}
+
+		}
+
+		public void readTags(ListTag tags) {
+			for(int i = tags.size(); i >= 0; --i) {
+				ItemStack itemStack = ItemStack.fromTag(tags.getCompound(i));
+				if (!itemStack.isEmpty()) {
+					this.addStack(itemStack);
+				}
+			}
+			this.markDirty();
+		}
+
+		public ListTag getTags() {
+			ListTag listTag = new ListTag();
+
+			for(int i = 0; i < this.size(); ++i) {
+				ItemStack itemStack = this.getStack(i);
+				if (!itemStack.isEmpty()) {
+					listTag.add(itemStack.toTag(new CompoundTag()));
+				}
+			}
+
+			return listTag;
+		}
+
+		private void transfer(ItemStack source, ItemStack target) {
+			int i = Math.min(this.getMaxCountPerStack(), target.getMaxCount());
+			int j = Math.min(source.getCount(), i - target.getCount());
+			if (j > 0) {
+				target.increment(j);
+				source.decrement(j);
+				this.markDirty();
+			}
+
+		}
+
+		private void addToNewSlot(ItemStack stack) {
+			this.stacks.add(0, stack.copy());
+			stack.setCount(0);
+		}
+
+		@Override
+		public int size() {
+			return stacks.size();
+		}
+
+		@Override
+		public boolean isEmpty() {
+			for (ItemStack stack : stacks) {
+				if (!stack.isEmpty()) return false;
+			}
+			return true;
+		}
+
+		@Override
+		public ItemStack getStack(int slot) {
+			return slot >= 0 && slot < this.stacks.size() ? this.stacks.get(slot) : ItemStack.EMPTY;
+		}
+
+		@Override
+		public ItemStack removeStack(int slot, int amount) {
+			ItemStack itemStack = Inventories.splitStack(this.stacks, slot, amount);
+			if (!itemStack.isEmpty()) {
+				this.markDirty();
+			}
+
+			return itemStack;
+		}
+
+		@Override
+		public ItemStack removeStack(int slot) {
+			ItemStack itemStack = this.stacks.get(slot);
+			if (itemStack.isEmpty()) {
+				return ItemStack.EMPTY;
+			} else {
+				this.stacks.set(slot, ItemStack.EMPTY);
+				return itemStack;
+			}
+		}
+
+		@Override
+		public void setStack(int slot, ItemStack stack) {
+			if (slot < stacks.size()) {
+				this.stacks.set(slot, stack);
+			} else {
+				this.stacks.add(stack);
+			}
+			if (!stack.isEmpty() && stack.getCount() > this.getMaxCountPerStack()) {
+				stack.setCount(this.getMaxCountPerStack());
+			}
+		}
+
+		@Override
+		public void markDirty() {
+			updateCount();
+		}
+
+		@Override
+		public boolean canPlayerUse(PlayerEntity player) {
+			return true;
+		}
+
+		@Override
+		public void clear() {
+			this.stacks.clear();
+			this.markDirty();
+		}
+
+		private void updateCount() {
+			count = 0;
+			for (ItemStack stack : stacks) {
+				count += getItemOccupancy(stack) * stack.getCount();
+			}
+		}
 	}
 }
