@@ -59,7 +59,7 @@ public class CustomBundleItem extends Item {
 				getTopStack(slotStack).ifPresent((itemStack2) -> addToBundle(slotStack, slot.method_32756(itemStack2)));
 			} else if (slotStack.getItem().hasStoredInventory()) {
 				int i = (maxCapacity - getBundleOccupancy(slotStack)) / getItemOccupancy(slotStack);
-				addToBundle(slotStack, slot.method_32753(slotStack.getCount(), i, playerInventory.player));
+				addToBundle(stack, slot.method_32753(slotStack.getCount(), i, playerInventory.player));
 			}
 
 			return true;
