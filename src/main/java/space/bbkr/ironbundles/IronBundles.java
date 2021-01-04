@@ -5,13 +5,9 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroup;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.registry.Registry;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 public class IronBundles implements ModInitializer {
 	public static final String MODID = "ironbundles";
-
-	public static final Logger logger = LogManager.getLogger();
 
 	public static final Item IRON_BUNDLE = register("iron_bundle", new CustomBundleItem(new Item.Settings().maxCount(1).group(ItemGroup.TOOLS), 128));
 

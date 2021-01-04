@@ -58,7 +58,7 @@ public class CustomBundleItem extends Item {
 			if (slotStack.isEmpty()) {
 				getTopStack(slotStack).ifPresent((itemStack2) -> addToBundle(slotStack, slot.method_32756(itemStack2)));
 			} else if (slotStack.getItem().hasStoredInventory()) {
-				int i = (maxCapacity - getBundleOccupancy(slotStack)) / getItemOccupancy(slotStack);
+				int i = (maxCapacity - getBundleOccupancy(stack)) / getItemOccupancy(slotStack);
 				addToBundle(stack, slot.method_32753(slotStack.getCount(), i, playerInventory.player));
 			}
 
@@ -188,7 +188,7 @@ public class CustomBundleItem extends Item {
 	public Optional<TooltipData> getTooltipData(ItemStack stack) {
 		DefaultedList<ItemStack> defaultedList = DefaultedList.of();
 		getBundledStacks(stack).forEach(defaultedList::add);
-		return Optional.of(new BundleTooltipData(defaultedList, getBundleOccupancy(stack) < maxCapacity));
+		return Optional.of(new BundleTooltipData(defaultedList, (int) (((float) getBundleOccupancy(stack) / (float) maxCapacity) * 64)));
 	}
 
 	@Override
@@ -243,7 +243,7 @@ public class CustomBundleItem extends Item {
 		private void addToExistingSlot(ItemStack stack) {
 			for(int i = 0; i < this.size(); ++i) {
 				ItemStack itemStack = this.getStack(i);
-				if (ItemStack.method_31577(itemStack, stack)) {
+				if (ItemStack.canCombine(itemStack, stack)) {
 					this.transfer(stack, itemStack);
 					if (stack.isEmpty()) {
 						return;
