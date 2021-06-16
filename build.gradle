@@ -1,11 +1,11 @@
 plugins {
-	id "fabric-loom" version "0.5-SNAPSHOT"
+	id "fabric-loom" version "0.8-SNAPSHOT"
 	id "maven-publish"
 	id "com.jfrog.artifactory" version "4.15.2"
 }
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+sourceCompatibility = 16
+targetCompatibility = 16
 
 if(rootProject.file("private.gradle").exists()) { //Publishing details
 	apply from: "private.gradle"
@@ -25,21 +25,10 @@ repositories {
 
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-	mappings "net.fabricmc:yarn:${project.minecraft_version}+build.${project.yarn_build}:v2"
+	mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 	compileOnly "com.google.code.findbugs:jsr305:3.0.2"
-}
-
-processResources {
-	inputs.property "version", project.version
-	from(sourceSets.main.resources.srcDirs) {
-		include "fabric.mod.json"
-		expand version: project.version
-	}
-	from(sourceSets.main.resources.srcDirs) {
-		exclude "fabric.mod.json"
-	}
 }
 
 // ensure that the encoding is set to UTF-8, no matter what the system default is
