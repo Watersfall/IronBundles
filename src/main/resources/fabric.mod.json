@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "id": "ironbundles",
-  "version": "${version}",
+  "version": "1.0.3",
 
   "name": "Iron Bundles",
   "icon": "assets/ironbundles/icon.png",
   "description": "Higher-capacity bundles",
   "license": "MIT",
   "contact": {
-    "sources": "https://github.com/Boundarybreaker/IronBundles"
+    "sources": "https://github.com/Watersfall/IronBundles"
   },
   "environment": "*",
   "entrypoints": {
