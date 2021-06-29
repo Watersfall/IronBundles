@@ -244,6 +244,12 @@ public class CustomBundleItem extends Item
 		tooltip.add((new TranslatableText("item.minecraft.bundle.fullness", getBundleOccupancy(stack), maxCapacity)).formatted(Formatting.GRAY));
 	}
 
+	@Override
+	public boolean canBeNested()
+	{
+		return false;
+	}
+
 	private class BundleInventory implements Inventory
 	{
 		private final ItemStack bundle;
